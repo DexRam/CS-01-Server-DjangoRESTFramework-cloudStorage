@@ -20,6 +20,16 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action == 'create' or self.action == 'login' :
             self.permission_classes = [AllowAny]
         return super().get_permissions()
+    
+    def create(self, request, *args, **kwargs):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            user.set_password(request.data['password'])
+            user.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def login(self, request):
