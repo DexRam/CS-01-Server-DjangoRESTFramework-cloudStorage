@@ -23,6 +23,7 @@ class UserViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         serializer = UserSerializer(data=request.data)
+        print(request.data)
         if serializer.is_valid():
             user = serializer.save()
             user.set_password(request.data['password'])
@@ -59,6 +60,9 @@ class FileViewSet(viewsets.ModelViewSet):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    def delete(self, *args, **kwargs):
+        self.file.delete()
+        super().delete(*args, **kwargs)
 
     @action(detail=False, methods=["post"])
     def userFiles(self, request):
