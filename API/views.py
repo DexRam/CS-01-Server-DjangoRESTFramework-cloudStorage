@@ -45,6 +45,11 @@ class UserViewSet(viewsets.ModelViewSet):
         data = serializer.data
         data.update({"refresh": str(refresh), "access": str(refresh.access_token)})
         return Response(data, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=["get"])
+    def me(self, request):
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
 
 
 class FileViewSet(viewsets.ModelViewSet):
