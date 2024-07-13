@@ -87,14 +87,40 @@ class FileViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"])
-    def download(self, request, pk=None):
+    def download(self, request, pk=None):   
         file_instance = self.get_object()
         if request.user == file_instance.owner or request.user.is_admin:
             file_path = file_instance.file.path
-            with open(file_path, "rb") as file:
-                return FileResponse(file, as_attachment=True)
+            file_name = file_instance.file.name
+            file = open(file_path, "rb")
+            response = FileResponse(file, as_attachment=True)
+            response['Content-Disposition'] = f'attachment; filename="{file_name}"'
+            return response
         else:
             return Response(
                 {"Error": "You do not have permission to access this file."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+    
+    @action(detail=True, methods=["post"])
+    def share(self, request, pk=None):
+        file_instance = self.get_object()
+        if request.user == file_instance.owner or request.user.is_admin:
+            file = self.get_object()
+            if file.share_link:
+                file.share_link = ""
+            else:
+                file.share_link = file.generate_share_link()
+            file.save()
+            serializer = self.get_serializer(file)
+            return Response(serializer.data)
+    
+    @action(detail=False, methods=["get"], url_path='download-shared/(?P<share_link>[^/.]+)', permission_classes=[AllowAny])
+    def download_shared(self, request, share_link=None):
+        file = get_object_or_404(File, share_link=share_link)
+        file_path = file.file.path
+        file_name = file.file.name
+        file = open(file_path, "rb")
+        response = FileResponse(file, as_attachment=True)
+        response['Content-Disposition'] = f'attachment; filename="{file_name}"'
+        return response

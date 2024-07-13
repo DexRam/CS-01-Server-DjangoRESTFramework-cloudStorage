@@ -1,4 +1,5 @@
 import os
+import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
@@ -35,3 +36,6 @@ class File(models.Model):
         return f"files/{self.owner.username}/{filename}"
 
     file = models.FileField(upload_to=file_upload_path)
+
+    def generate_share_link(self):
+        return str(uuid.uuid4())
