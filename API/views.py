@@ -21,12 +21,12 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ["create", "login"]:
             self.permission_classes = [AllowAny]
-        return super().get_permissions()
+        return [permission() for permission in self.permission_classes]
 
     def create(self, request, *args, **kwargs):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
+            user = serializer.save(commit=False)
             user.set_password(request.data["password"])
             user.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -56,14 +56,23 @@ class UserViewSet(viewsets.ModelViewSet):
 class FileViewSet(viewsets.ModelViewSet):
     queryset = File.objects.all()
     serializer_class = FileSerializer
-    permission_classes = [IsAdminUser]
 
     def get_permissions(self):
-        if self.action in ["download_shared"]:
+        if self.action == "download_shared":
             self.permission_classes = [AllowAny]
-        elif self.action in ["create", "destroy", "share", "download", "user_files"]:
+        elif self.action in [
+            "create",
+            "patch",
+            "update",
+            "destroy",
+            "share",
+            "download",
+            "user_files",
+        ]:
             self.permission_classes = [IsAuthenticated]
-        return super().get_permissions()
+        else:
+            self.permission_classes = [IsAuthenticated, IsAdminUser]
+        return [permission() for permission in self.permission_classes]
 
     def create(self, request, *args, **kwargs):
         user = request.user
@@ -72,36 +81,41 @@ class FileViewSet(viewsets.ModelViewSet):
             user_to_create = get_object_or_404(User, id=user_id)
         else:
             user_to_create = user
-
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(owner=user_to_create)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(owner=user_to_create)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
-        user = request.user
-        file_id = request.data.get("id")
-        if user.is_admin and file_id:
-            file_instance = get_object_or_404(File, id=file_id)
-        else:
-            file_instance = get_object_or_404(File, owner=user, id=file_id)
+        file_instance = self.get_object()
+        if not (request.user == file_instance.owner or request.user.is_admin):
+            return Response(
+                {"Error": "You do not have permission to access this file."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         file_instance.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @action(detail=False, methods=["post"], url_path="user-files")
-    def user_files(self, request):
-        user_id = request.data.get("id")
-        user = (
-            request.user
-            if not request.user.is_admin
-            else get_object_or_404(User, id=user_id)
+        return Response(
+            {"message": "File deleted successfully"},
+            status=status.HTTP_204_NO_CONTENT
         )
-        files = File.objects.filter(owner=user)
-        serializer = self.get_serializer(files, many=True)
-        return Response(serializer.data)
 
-    @action(detail=True, methods=["get"], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=["post"])
+    def share(self, request, pk=None):
+        file_instance = self.get_object()
+        if not (request.user == file_instance.owner or request.user.is_admin):
+            return Response(
+                {"Error": "You do not have permission to access this file."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not file_instance.share_link:
+            file_instance.share_link = file_instance.generate_share_link()
+        else:
+            file_instance.share_link = ""
+        file_instance.save()
+        serializer = self.get_serializer(file_instance)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=["get"])
     def download(self, request, pk=None):
         file_instance = self.get_object()
         if not (request.user == file_instance.owner or request.user.is_admin):
@@ -112,44 +126,32 @@ class FileViewSet(viewsets.ModelViewSet):
 
         file_path = file_instance.file.path
         file_name = file_instance.file.name
-        with open(file_path, "rb") as file:
-            response = FileResponse(file, as_attachment=True)
-            response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-            return response
-
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
-    def share(self, request, pk=None):
-        file_instance = self.get_object()
-        user = request.user
-        user_id = request.data.get("id")
-
-        if user.is_admin and user_id:
-            user_to_share = get_object_or_404(User, id=user_id)
-        else:
-            user_to_share = user
-
-        if user == file_instance.owner or user.is_admin:
-            if not file_instance.share_link:
-                file_instance.share_link = file_instance.generate_share_link()
-            file_instance.save()
-            serializer = self.get_serializer(file_instance)
-            return Response(serializer.data)
-        return Response(
-            {"detail": "You do not have permission to share this file."},
-            status=status.HTTP_403_FORBIDDEN,
-        )
-
+        file = open(file_path, "rb")
+        response = FileResponse(file, as_attachment=True)
+        response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+        return response
+    
     @action(
         detail=False,
         methods=["get"],
         url_path="download-shared/(?P<share_link>[^/.]+)",
-        permission_classes=[AllowAny],
     )
     def download_shared(self, request, share_link=None):
         file_instance = get_object_or_404(File, share_link=share_link)
         file_path = file_instance.file.path
         file_name = file_instance.file.name
-        with open(file_path, "rb") as file:
-            response = FileResponse(file, as_attachment=True)
-            response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-            return response
+        file = open(file_path, "rb")
+        response = FileResponse(file, as_attachment=True)
+        response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+        return response
+
+    @action(detail=False, methods=["post"], url_path="user-files")
+    def user_files(self, request):
+        user = request.user
+        user_id = request.data.get("id")
+        if user.is_admin and user_id:
+            files = File.objects.filter(owner=user_id)
+        else:
+            files = File.objects.filter(owner=user)
+        serializer = self.get_serializer(files, many=True)
+        return Response(serializer.data)
