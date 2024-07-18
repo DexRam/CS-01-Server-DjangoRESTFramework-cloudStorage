@@ -21,11 +21,7 @@ class User(AbstractUser):
 class File(models.Model):
     name = models.CharField(max_length=100, unique=True)
     owner = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="files",
-        to_field="username",
-        blank=True,
+        User, on_delete=models.CASCADE, related_name="files", blank=True
     )
     uploaded_at = models.DateTimeField(default=timezone.now)
     downloaded_at = models.DateTimeField(blank=True, null=True)
