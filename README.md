@@ -149,6 +149,7 @@ These endpoints cover user registration, authentication, file upload, download, 
 
 
 ## Contributing
+
 1. Fork the repository
 2. Create a new branch (git checkout -b feature-branch)
 3. Commit your changes (git commit -am 'Add new feature')
@@ -156,5 +157,6 @@ These endpoints cover user registration, authentication, file upload, download, 
 5. Create a new Pull Request
 
 ## License
+
 This project is licensed under the MIT License.
 Feel free to customize it according to your project's specific details and requirements.
