@@ -19,12 +19,16 @@ class User(AbstractUser):
 
 
 class File(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     owner = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="files", blank=True
     )
     uploaded_at = models.DateTimeField(default=timezone.now)
     downloaded_at = models.DateTimeField(blank=True, null=True)
+
+    def generate_share_link(self):
+        return str(uuid.uuid4())
+
     share_link = models.CharField(max_length=100, blank=True)
     comment = models.CharField(max_length=100, blank=True)
 
@@ -32,6 +36,12 @@ class File(models.Model):
         return f"files/{self.owner.username}/{filename}"
 
     file = models.FileField(upload_to=file_upload_path)
+    size = models.BigIntegerField(default=0)
 
-    def generate_share_link(self):
-        return str(uuid.uuid4())
+    class Meta:
+        unique_together = [["name", "owner"]]
+
+    def save(self, *args, **kwargs):
+        if self.file:
+            self.size = self.file.size
+        super(File, self).save(*args, **kwargs)

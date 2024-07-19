@@ -49,6 +49,20 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
 
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="user-stats",
+        permission_classes=[IsAuthenticated, IsAdminUser],
+    )
+    def user_stats(self, request, pk=None):
+        print(request.data)
+        user = self.get_object()
+        user_files = File.objects.filter(owner=user)
+        total_files = user_files.count()
+        total_size = sum([file.size for file in user_files])
+        return Response({"total_files": total_files, "total_size": total_size})
+
 
 class FileViewSet(viewsets.ModelViewSet):
     queryset = File.objects.all()
@@ -62,7 +76,6 @@ class FileViewSet(viewsets.ModelViewSet):
         permission_classes=[IsAuthenticated],
     )
     def upload_file(self, request, *args, **kwargs):
-        print(request.data)
         user = request.user
         user_id = request.data.get("id")
         if user.is_admin and user_id:
