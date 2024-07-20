@@ -77,9 +77,9 @@ class FileViewSet(viewsets.ModelViewSet):
     )
     def upload_file(self, request, *args, **kwargs):
         user = request.user
-        user_id = request.data.get("id")
-        if user.is_admin and user_id:
-            user_to_create = get_object_or_404(User, id=user_id)
+        owner = request.data.get("owner")
+        if user.is_admin and owner:
+            user_to_create = get_object_or_404(User, id=owner)
         else:
             user_to_create = user
         serializer = self.get_serializer(data=request.data)
