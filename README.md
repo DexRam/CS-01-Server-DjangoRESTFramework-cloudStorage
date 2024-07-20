@@ -33,10 +33,16 @@ This is a cloud storage server built with Django REST Framework. It provides an 
 
 5. Set up the settings:
 
-    a. Go to cloudStorage - settings.py
-    b. Configure DATABASES = {}
-    c. Configure ALLOWED_HOSTS = []
-    d. Configure CORS_ALLOWED_ORIGINS = []
+    a. Go to cloudStorage - customization.py
+    b. Configure BASE_DIR if needed
+    c. Configure SECRET_KEY, generate new one by:
+        ```bash
+        python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+        ```
+    d. Configure DATABASES if needed
+    i. Configure CORS_ALLOWED_ORIGINS
+    f. Configure ALLOWED_HOSTS
+    d. Configure FILES_DIRECTORY if needed
 
 5. Set up the database:
 

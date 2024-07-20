@@ -3,6 +3,7 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from cloudStorage.customization import FILES_DIRECTORY
 
 
 class User(AbstractUser):
@@ -12,7 +13,7 @@ class User(AbstractUser):
     is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
-        self.file_path = os.path.join("files", self.username)
+        self.file_path = os.path.join(FILES_DIRECTORY, self.username)
         if self.is_superuser:
             self.is_admin = True
         super().save(*args, **kwargs)
@@ -33,7 +34,7 @@ class File(models.Model):
     comment = models.CharField(max_length=100, blank=True)
 
     def file_upload_path(self, filename):
-        return f"files/{self.owner.username}/{filename}"
+        return f"{FILES_DIRECTORY}/{self.owner.username}/{filename}"
 
     file = models.FileField(upload_to=file_upload_path)
     size = models.BigIntegerField(default=0)
